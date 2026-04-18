@@ -9,8 +9,8 @@ fn vs_main(
 ) -> VertexOutput {
     var out: VertexOutput;
     // Creates a triangle that covers the whole screen
-    let x = f32(i32(in_vertex_index) << 1u & 2) - 1.0;
-    let y = f32(i32(in_vertex_index) & 2) - 1.0;
+    let x = f32(i32(in_vertex_index) << 1u & 2) * 2.0 - 1.0;
+    let y = f32(i32(in_vertex_index) & 2) * 2.0 - 1.0;
     out.tex_coords = vec2<f32>(x * 0.5 + 0.5, 1.0 - (y * 0.5 + 0.5));
     out.clip_position = vec4<f32>(x, y, 0.0, 1.0);
     return out;

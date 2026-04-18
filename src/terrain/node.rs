@@ -4,7 +4,7 @@ use glam::{Vec2, Vec3, Vec4};
 
 use crate::{gpu::context::GpuContext, terrain::{NodeId, resource_registry::{ResourceRegistry, ResourceKey}}};
 
-pub trait Node {
+pub trait Node: Send {
     fn encode(
         &self,
         node_id: NodeId,
@@ -14,8 +14,10 @@ pub trait Node {
     );
 
     fn inputs(&self) -> &HashMap<String, InputPort>;
+    fn inputs_mut(&mut self) -> &mut HashMap<String, InputPort>;
     fn outputs(&self) -> &HashMap<String, OutputPort>;
     fn is_dirty(&self) -> bool;
+    fn set_dirty(&mut self);
     fn set_clean(&mut self);
 }
 
@@ -73,6 +75,9 @@ impl NoiseNode {
 }
 
 impl Node for NoiseNode {
+    fn inputs_mut(&mut self) -> &mut HashMap<String, InputPort> { &mut self.inputs }
+    fn set_dirty(&mut self) { self.dirty = true; }
+
     fn encode(
         &self,
         node_id: NodeId,
@@ -147,6 +152,9 @@ impl SolidColorNode {
 }
 
 impl Node for SolidColorNode {
+    fn inputs_mut(&mut self) -> &mut HashMap<String, InputPort> { &mut self.inputs }
+    fn set_dirty(&mut self) { self.dirty = true; }
+
     fn encode(
         &self,
         node_id: NodeId,
