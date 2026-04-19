@@ -3,7 +3,7 @@ use glam::Vec4;
 use winit::{
     application::ApplicationHandler, dpi::LogicalSize, event::WindowEvent, event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy}, window::{Window, WindowAttributes}
 };
-use crate::{gpu::{context::GpuContext, renderer::Renderer}, terrain::{NodeId, TerrainSystem, node::SolidColorNode, resource_registry::ResourceKey}};
+use crate::{gpu::{context::GpuContext, renderer::Renderer}, terrain::{NodeId, TerrainSystem, node::{CheckerNode, PerlinNoiseNode, SolidColorNode}, resource_registry::ResourceKey}};
 
 pub enum AppEvent {
     EvalComplete,
@@ -66,8 +66,29 @@ impl ApplicationHandler<AppEvent> for App {
         self.renderer = Some(renderer);
 
         let mut terrain = TerrainSystem::new();
+        let gpu = self.gpu_context.as_ref().unwrap();
         let red_node = Box::new(SolidColorNode::new(Vec4::new(1.0, 0.0, 0.0, 1.0)));
-        let root_node_id = terrain.graph.add_node(red_node);
+        let checker_node = Box::new(CheckerNode::new(
+            gpu,
+            8.0,
+            Vec4::new(1.0, 0.5, 1.0, 1.0),
+            Vec4::new(0.5, 0.0, 1.0, 1.0),
+        ));
+        let checker_node_id = terrain.graph.add_node(checker_node);
+        let perlin_node = Box::new(
+            PerlinNoiseNode::new(
+                gpu, 5.0
+            )
+        );
+        let perlin_node_id = terrain.graph.add_node(perlin_node);
+        let red_node_id = terrain.graph.add_node(red_node);
+        let root_node_id = perlin_node_id; // Start with the Perlin noise as the root
+        terrain.graph.connect(
+            red_node_id,
+            "Output".to_string(),
+            checker_node_id,
+            "Color1".to_string(),
+        );
         self.root_node_id = Some(root_node_id);
 
         let (eval_tx, eval_rx) = mpsc::sync_channel::<NodeId>(1);
