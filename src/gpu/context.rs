@@ -20,7 +20,10 @@ impl GpuContext {
         ).await.unwrap();
 
         let (device, queue) = adapter.request_device(
-            &wgpu::DeviceDescriptor::default(),
+            &wgpu::DeviceDescriptor {
+                required_features: wgpu::Features::FLOAT32_FILTERABLE,
+                ..Default::default()
+            },
         ).await.unwrap();
 
         let size = window.inner_size();

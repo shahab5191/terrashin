@@ -18,7 +18,12 @@ cargo check
 RUST_LOG=debug cargo run
 ```
 
-No tests exist yet (except unit tests in `graph.rs` for connect/disconnect/dirty propagation).
+Run graph unit tests (no GPU required):
+```bash
+cargo test
+```
+
+Tests live in `src/terrain/graph.rs` and cover connect/disconnect/dirty propagation using a `TestNode` stub.
 
 ## Architecture
 
@@ -26,9 +31,9 @@ No tests exist yet (except unit tests in `graph.rs` for connect/disconnect/dirty
 
 ### Threading model
 
-`App` (winit `ApplicationHandler<AppEvent>`) runs on the main thread. On `resumed()`, it spawns a background thread that owns `TerrainSystem`. Communication is via two `mpsc::sync_channel`s:
-- Main → background: `EvalRequest { node_id }` triggers evaluation
-- Background → main: `EvalResult { view: Arc<wgpu::TextureView> }` causes `window.request_redraw()`
+`App` (winit `ApplicationHandler<AppEvent>`) runs on the main thread. On `resumed()`, it spawns a background thread that owns `TerrainSystem`. Communication is via two channels:
+- Main → background: `mpsc::sync_channel::<NodeId>(1)` — sends root node ID to trigger evaluation
+- Background → main: `mpsc::channel::<wgpu::TextureView>()` — sends the output view, then wakes the event loop via `EventLoopProxy::send_event(AppEvent::EvalComplete)`
 
 `AppEvent` is the custom winit user-event type used to wake the event loop from the background thread.
 
@@ -43,7 +48,7 @@ No tests exist yet (except unit tests in `graph.rs` for connect/disconnect/dirty
 
 ### Key types
 
-- **`Node` trait** (`src/terrain/node.rs`) — implement `encode()`, `inputs()`, `inputs_mut()`, `outputs()`, `is_dirty()`, `set_dirty()`, `set_clean()`. Nodes produce `Rgba8UnormSrgb` textures at 512×512.
+- **`Node` trait** (`src/terrain/node/mod.rs`) — implement `encode()`, `inputs()`, `inputs_mut()`, `outputs()`, `is_dirty()`, `set_dirty()`, `set_clean()`. Nodes produce `Rgba8UnormSrgb` textures at 512×512. GPU-backed nodes (e.g. `CheckerNode`, `PerlinNoiseNode`) own their `wgpu::RenderPipeline`, `BindGroupLayout`, `Sampler`, and uniform `Buffer`; these are created once in `::new()` and reused across `encode()` calls.
 - **Port system** — `InputPort { name, value_type, connection: Option<OutputPortRef> }` and `OutputPort { name, value_type }`. `OutputPortRef { node_id, port_name }` is the connection target. `ValueType` covers Float/Vec2/Vec3/Vec4/Bool/Texture.
 - **`ResourceRegistry`** (`src/terrain/resource_registry.rs`) — flat `HashMap` store for `wgpu::Texture` (owned, output/internal only) and `wgpu::TextureView` (cloneable, all slots). Keys are `ResourceKey`.
 - **`Graph`** (`src/terrain/graph.rs`) — `HashMap<NodeId, Box<dyn Node>>` with auto-incrementing `NodeId`, plus parent/child maps for dirty propagation. `connect()` / `disconnect()` update these maps; `mark_dirty_recursive()` walks ancestors.
@@ -53,13 +58,16 @@ No tests exist yet (except unit tests in `graph.rs` for connect/disconnect/dirty
 
 ### Adding a new node type
 
-1. Add a struct with `inputs: HashMap<String, InputPort>`, `outputs: HashMap<String, OutputPort>`, `dirty: bool`
-2. Implement the `Node` trait — `encode()` must insert into `resource_registry.textures` and `resource_registry.views` under `ResourceKey::output(node_id, port_name)`
-3. Connect nodes via `Graph::connect()` or by setting `InputPort::connection` to an `OutputPortRef { node_id, port_name }`
+1. Add a struct with `inputs: HashMap<String, InputPort>`, `outputs: HashMap<String, OutputPort>`, `dirty: bool`. For GPU-backed nodes, also store `render_pipeline`, `bind_group_layout`, `sampler`, and `uniform_buffer` — initialize them in `::new()`.
+2. For texture inputs that may be unconnected, create fallback 1×1 textures via `create_fallback_texture(color, gpu)` in `::new()` and use them in `encode()` when the input slot is absent from the registry.
+3. Implement the `Node` trait — `encode()` must insert into `resource_registry.textures` and `resource_registry.views` under `ResourceKey::output(node_id, port_name)`.
+4. Uniform buffers must be padded to 16 bytes (WGSL uniform alignment). Pack a `f32` as `[f32_bytes, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]`.
+5. Re-export the new type from `src/terrain/node/mod.rs` and register it in `App::resumed()` in `src/app.rs`.
+6. Connect nodes via `Graph::connect(from_id, "OutputPort", to_id, "InputPort")`.
 
 ### Shaders
 
-WGSL shaders live in `src/shaders/` and are embedded at compile time via `include_str!`. `blit.wgsl` uses a geometry-shader-free fullscreen triangle (no vertex buffer). `noise.wgsl` and `blure.wgsl` are empty placeholders.
+WGSL shaders live in `src/shaders/` and are embedded at compile time via `include_str!`. `blit.wgsl` uses a geometry-shader-free fullscreen triangle (no vertex buffer). All node shaders use the same vertex entry `vs_main` that emits a fullscreen triangle; only `fs_main` varies per node. `noise.wgsl` and `blur.wgsl` are empty placeholders.
 
 ### Placeholder / stub files
 
@@ -71,4 +79,5 @@ WGSL shaders live in `src/shaders/` and are embedded at compile time via `includ
 - **winit** 0.30 — windowing/events
 - **glam** — Vec2/Vec3/Vec4 math used in node parameters
 - **pollster** — blocks on async GPU init at startup
+- **image** — image loading/decoding (not yet used in node pipeline)
 - **anyhow** / **thiserror** — error handling

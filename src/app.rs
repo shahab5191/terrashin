@@ -77,7 +77,7 @@ impl ApplicationHandler<AppEvent> for App {
         let checker_node_id = terrain.graph.add_node(checker_node);
         let perlin_node = Box::new(
             PerlinNoiseNode::new(
-                gpu, 5.0
+                gpu, 15.0
             )
         );
         let perlin_node_id = terrain.graph.add_node(perlin_node);

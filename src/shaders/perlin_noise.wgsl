@@ -9,20 +9,14 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) tex_coords: vec2<f32>,
 }
-fn tau_step(z: u32, s1: u32, s2: u32, s3: u32, m: u32) -> u32 {
-    let b = ((z << s1) ^ z) >> s2;
-    return ((z & m) << s3) ^ b;
+fn pcg(v: u32) -> u32 {
+    let state = v * 747796405u + 2891336453u;
+    let word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
 }
 
-fn rng_round(state: u32) -> u32 {
-    let z1 = tau_step(state, 13u, 19u, 12u,
-    429496729u);
-    let z2 = tau_step(state, 2u, 25u, 4u,
-    4294967288u);
-    let z3 = tau_step(state, 3u, 11u, 17u,
-    429496280u);
-    let z4 = 1664525u * state + 1013904223u;
-    return z1 ^ z2 ^ z3 ^ z4;
+fn hash2(ix: u32, iy: u32) -> u32 {
+    return pcg(ix + pcg(iy));
 }
 
 fn fade(t: f32) -> f32 {
@@ -33,18 +27,8 @@ fn mix(a: f32, b: f32, t: f32) -> f32 {
     return a + t * (b - a);
 }
 
-fn hash2(ix: u32, iy: u32) -> u32 {
-    var state = ix * 1664525u + iy * 1013904223u + ix * iy;
-    state ^= state >> 17u;
-    state *= 0xbf324c81u;
-    state ^= state >> 11u;
-    state *= 0x9a813b27u;
-    state ^= state >> 15u;
-    return state;
-}
-
 fn gradient(ix: u32, iy: u32) -> vec2<f32> {
-    let h = rng_round(hash2(ix, iy));
+    let h = hash2(ix, iy);
     let angle = f32(h) * 2.3283064365387e-10 * 6.28318530718;
     return vec2<f32>(cos(angle), sin(angle));
 }
@@ -97,10 +81,7 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let scaled = in.tex_coords * uniforms.scale;
-    let pid = u32(in.clip_position.x) +
-    u32(in.clip_position.y) * 512u;
-    let n = perlin(scaled, uniforms.scale);
-    let value = n * 0.5 + 0.5; // map from [-1,1] to [0,1]
+    let n = perlin(in.tex_coords, uniforms.scale);
+    let value = n * 0.5 + 0.5;
     return vec4<f32>(value, value, value, 1.0);
 }

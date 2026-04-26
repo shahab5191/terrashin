@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use glam::{Vec2, Vec3, Vec4};
 
-use crate::{gpu::context::GpuContext, terrain::{NodeId, resource_registry::{ResourceRegistry, ResourceKey}}};
+use crate::{gpu::context::GpuContext, terrain::{NodeId, resource_registry::{ResourceRegistry}}};
 
 pub mod checker;
 pub mod perlin_noise;
