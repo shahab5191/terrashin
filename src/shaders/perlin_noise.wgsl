@@ -1,5 +1,7 @@
 struct Uniforms {
     scale: f32,
+    min_value: f32,
+    max_value: f32,
 }
 
 @group(0) @binding(0) var tex_sampler: sampler;
@@ -80,8 +82,8 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
 }
 
 @fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fs_main(in: VertexOutput) -> @location(0) f32 {
     let n = perlin(in.tex_coords, uniforms.scale);
     let value = n * 0.5 + 0.5;
-    return vec4<f32>(value, value, value, 1.0);
+    return value * (uniforms.max_value - uniforms.min_value) + uniforms.min_value;
 }

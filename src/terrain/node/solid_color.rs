@@ -19,7 +19,7 @@ impl SolidColorNode {
             "Output".to_string(),
             OutputPort {
                 name: "Output".to_string(),
-                value_type: ValueType::Texture,
+                value_type: ValueType::ColorMap,
             },
         )]);
         Self {

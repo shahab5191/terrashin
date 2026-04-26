@@ -135,12 +135,12 @@ impl CheckerNode {
         let inputs = HashMap::from([
             ("Color1".to_string(), InputPort {
                 name: "Color1".to_string(),
-                value_type: ValueType::Texture,
+                value_type: ValueType::ColorMap,
                 connection: None,
             }),
             ("Color2".to_string(), InputPort {
                 name: "Color2".to_string(),
-                value_type: ValueType::Texture,
+                value_type: ValueType::ColorMap,
                 connection: None,
             }),
             ("Scale".to_string(), InputPort {
@@ -150,10 +150,24 @@ impl CheckerNode {
             }),
         ]);
 
-        let outputs = HashMap::from([("Output".to_string(), OutputPort {
-            name: "Output".to_string(),
-            value_type: ValueType::Texture,
-        })]);
+        let outputs = HashMap::from(
+            [
+                (
+                    "Output".to_string(),
+                    OutputPort {
+                        name: "Output".to_string(),
+                        value_type: ValueType::HeightMap,
+                    }
+                ),
+                (
+                    "ColorOutput".to_string(),
+                    OutputPort {
+                        name: "ColorOutput".to_string(),
+                        value_type: ValueType::ColorMap,
+                    },
+                )
+            ]
+        );
 
         Self {
             inputs,

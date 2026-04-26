@@ -36,7 +36,8 @@ pub enum ValueType {
     Vec3(Vec3),
     Vec4(Vec4),
     Bool(bool),
-    Texture,
+    HeightMap, // Represents a height map texture
+    ColorMap,   // Represents a color texture
 }
 
 #[derive(Debug, Clone)]
